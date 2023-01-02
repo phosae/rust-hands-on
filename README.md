@@ -1,5 +1,8 @@
 # rewrite qappctl-shim in Rust
-
+play with
+```
+cargo run
+```
 ## Step 1: write a stateless car server
 copy & paste codes 
 - [arealesramirez/rust-rest-api-hyper](https://github.com/arealesramirez/rust-rest-api-hyper) for apis
