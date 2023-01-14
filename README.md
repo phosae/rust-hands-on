@@ -17,9 +17,8 @@ copy & paste codes
       - `type Result<T> = std::result::Result<T, GenericError>;`
       - `type BoxBody = http_body_util::combinators::BoxBody<Bytes, hyper::Error>;`
 
-## [TODO]Step 2: store cars in memory
-copy & paste codes 
-- [state](https://github.com/hyperium/hyper/tree/v1.0.0-rc.2/examples/state.rs)
+## Step 2: store cars in memory
+- see [CHANGELOG-v2](CHANGELOG-v2.md)
 
 ## [TODO]Step 3: do the true thing ———— rewrite [qappctl-shim](https://github.com/phosae/qappctl-shim)
 1. do rewrite
