@@ -18,6 +18,10 @@ copy & paste codes
       - `type BoxBody = http_body_util::combinators::BoxBody<Bytes, hyper::Error>;`
 
 ## Step 2: store cars in memory
+- POST    /cars
+- PUT     /cars/{id}
+- GET     /cars, /cars/{id}
+- DELETE  /cars, /cars/{id}
 - see [CHANGELOG-v2](CHANGELOG-v2.md)
 
 ## [TODO]Step 3: do the true thing ———— rewrite [qappctl-shim](https://github.com/phosae/qappctl-shim)

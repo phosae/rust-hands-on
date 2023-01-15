@@ -223,10 +223,29 @@ impl hyper::service::Service<Request<Incoming>> for Svc {
             }
 
             (&Method::PUT, "cars") => {
+                if path_segments.len() <= 2 {
+                    return Box::pin(async { Ok(mk_err_response(StatusCode::NOT_FOUND, "")) });
+                }
+
+                let car_id_str = path_segments[2];
+                let car_id = match car_id_str.trim().parse::<u32>() {
+                    Ok(num) => num,
+                    Err(_) => {
+                        let res = mk_err_response(
+                            StatusCode::BAD_REQUEST,
+                            format!("invalid id={}, expect uint32 number", car_id_str),
+                        );
+                        return Box::pin(async { Ok(res) });
+                    }
+                };
+
                 let svc = self.clone();
                 let res = async move {
                     match decode_request_body::<Car>(req).await {
-                        Ok(car) => Ok(svc.update_car(car)),
+                        Ok(mut car) => {
+                            car.id = car_id;
+                            Ok(svc.update_car(car))
+                        }
                         Err(e) => Ok(mk_err_response(
                             StatusCode::BAD_REQUEST,
                             format!("invalid json input:{e}"),
@@ -237,12 +256,7 @@ impl hyper::service::Service<Request<Incoming>> for Svc {
             }
 
             // Return the 404 Not Found for other routes.
-            _ => Box::pin(async {
-                Ok(mk_err_response(
-                    StatusCode::NOT_FOUND,
-                    StatusCode::NOT_FOUND.as_str(),
-                ))
-            }),
+            _ => Box::pin(async { Ok(mk_err_response(StatusCode::NOT_FOUND, "")) }),
         }
     }
 }
