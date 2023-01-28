@@ -22,6 +22,7 @@ copy & paste codes
 - PUT     /cars/{id}
 - GET     /cars, /cars/{id}
 - DELETE  /cars, /cars/{id}
+- generate cars 🚀🚀🚀 `hey -z 10s -cpus 4 -c 4 -d '{"brand":"Tesla", "model": "Y", "year": 2023}' -m POST http://127.0.0.1:9100/cars` 
 - see [CHANGELOG-v2](CHANGELOG-v2.md)
 
 ## [TODO]Step 3: do the true thing ———— rewrite [qappctl-shim](https://github.com/phosae/qappctl-shim)
