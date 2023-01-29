@@ -110,58 +110,129 @@ impl Svc {
         }
     }
 
-    fn get_car_list(&self) -> Response<BoxBody> {
+    async fn get_car_list(self, _: httputil::Context, _: Request<Incoming>) -> Response<BoxBody> {
         match self.car_store.get_all_cars() {
             Ok(cars) => mk_json_response(&cars),
             Err(e) => Svc::store_err_to_resp(e),
         }
     }
 
-    fn get_car_by_id(&self, id: u32) -> Response<BoxBody> {
-        match self.car_store.get_car(id) {
-            Ok(car) => mk_json_response(&car),
-            Err(store_err) => Self::store_err_to_resp(store_err),
+    async fn get_car_by_id(
+        self,
+        ctx: httputil::Context,
+        _: Request<Incoming>,
+    ) -> Response<BoxBody> {
+        match ctx.vars.get("id") {
+            Some(car_id) => {
+                let id: u32 = match car_id.trim().parse() {
+                    Ok(num) => num,
+                    Err(_) => {
+                        return mk_err_response(
+                            StatusCode::BAD_REQUEST,
+                            format!("invalid id={}, expect uint32 number", car_id),
+                        )
+                    }
+                };
+                match self.car_store.get_car(id) {
+                    Ok(car) => mk_json_response(&car),
+                    Err(store_err) => Self::store_err_to_resp(store_err),
+                }
+            }
+            None => {
+                return mk_err_response(StatusCode::BAD_REQUEST, format!("expect id in url path"))
+            }
         }
     }
 
-    fn create_car(&self, new_car: Car) -> Response<BoxBody> {
-        if new_car.year <= 0 {
-            return mk_err_response(StatusCode::BAD_REQUEST, "car year must be greater than 0");
-        }
-        match self
-            .car_store
-            .create_car(new_car.brand, new_car.model, new_car.year)
-        {
-            Ok(nid) => mk_json_response(&json!({ "id": nid }).to_string()),
-            Err(e) => Svc::store_err_to_resp(e),
-        }
-    }
-
-    fn update_car(&self, car: Car) -> Response<BoxBody> {
-        if car.year <= 0 {
-            return mk_err_response(StatusCode::BAD_REQUEST, "car year must be greater than 0");
-        }
-        match self.car_store.update_car(car) {
-            Ok(()) => mk_json_response("{}"),
-            Err(e) => Self::store_err_to_resp(e),
+    async fn create_car(self, _: httputil::Context, req: Request<Incoming>) -> Response<BoxBody> {
+        match decode_request_body::<Car>(req).await {
+            Ok(new_car) => {
+                if new_car.year <= 0 {
+                    return mk_err_response(
+                        StatusCode::BAD_REQUEST,
+                        "car year must be greater than 0",
+                    );
+                }
+                match self
+                    .car_store
+                    .create_car(new_car.brand, new_car.model, new_car.year)
+                {
+                    Ok(nid) => mk_json_response(&json!({ "id": nid }).to_string()),
+                    Err(e) => Svc::store_err_to_resp(e),
+                }
+            }
+            Err(e) => mk_err_response(StatusCode::BAD_REQUEST, format!("invalid json input:{e}")),
         }
     }
 
-    fn delete_car(&self, id: u32) -> Response<BoxBody> {
-        match self.car_store.delete_car(id) {
-            Ok(()) => mk_json_response("{}"),
-            Err(e) => Self::store_err_to_resp(e),
+    async fn update_car(self, ctx: httputil::Context, req: Request<Incoming>) -> Response<BoxBody> {
+        let car_id = match ctx.vars.get("id") {
+            Some(car_id) => match car_id.trim().parse::<u32>() {
+                Ok(num) => num,
+                Err(_) => {
+                    return mk_err_response(
+                        StatusCode::BAD_REQUEST,
+                        format!("invalid id={}, expect uint32 number", car_id),
+                    )
+                }
+            },
+            None => {
+                return mk_err_response(StatusCode::BAD_REQUEST, format!("expect id in url path"))
+            }
+        };
+
+        match decode_request_body::<Car>(req).await {
+            Ok(mut car) => {
+                car.id = car_id;
+                if car.year <= 0 {
+                    return mk_err_response(
+                        StatusCode::BAD_REQUEST,
+                        "car year must be greater than 0",
+                    );
+                };
+                match self.car_store.update_car(car) {
+                    Ok(()) => mk_json_response("{}"),
+                    Err(e) => Self::store_err_to_resp(e),
+                }
+            }
+            Err(e) => mk_err_response(StatusCode::BAD_REQUEST, format!("invalid json input:{e}")),
         }
     }
 
-    fn delete_all_cars(&self) -> Response<BoxBody> {
+    async fn delete_car(self, ctx: httputil::Context, _: Request<Incoming>) -> Response<BoxBody> {
+        match ctx.vars.get("id") {
+            Some(car_id) => {
+                let id: u32 = match car_id.trim().parse() {
+                    Ok(num) => num,
+                    Err(_) => {
+                        return mk_err_response(
+                            StatusCode::BAD_REQUEST,
+                            format!("invalid id={}, expect uint32 number", car_id),
+                        )
+                    }
+                };
+                match self.car_store.delete_car(id) {
+                    Ok(()) => mk_json_response("{}"),
+                    Err(e) => Self::store_err_to_resp(e),
+                }
+            }
+            None => {
+                return mk_err_response(StatusCode::BAD_REQUEST, format!("expect id in url path"))
+            }
+        }
+    }
+
+    async fn delete_all_cars(
+        self,
+        _: httputil::Context,
+        _: Request<Incoming>,
+    ) -> Response<BoxBody> {
         match self.car_store.delete_all_cars() {
             Ok(()) => mk_json_response("{}"),
             Err(e) => Self::store_err_to_resp(e),
         }
     }
 
-    #[allow(dead_code)]
     fn list_images(
         self,
         _: httputil::Context,
@@ -170,7 +241,6 @@ impl Svc {
         async { ret_to_resp(ctl::list_images()) }
     }
 
-    #[allow(dead_code)]
     fn push_image(
         self,
         _: httputil::Context,
@@ -189,6 +259,72 @@ impl Svc {
             }
         }
     }
+
+    fn build_router() -> Router {
+        fn add_route(
+            mux: &mut HashMap<Method, matchit::Router<HandlerFn>>,
+            path: &str,
+            methed: Method,
+            handler: httputil::BoxCloneHandler<Svc, Request<Incoming>, Response<BoxBody>>,
+        ) -> () {
+            mux.entry(methed)
+                .or_default()
+                .insert(path, handler.into())
+                .unwrap();
+        }
+
+        let mut mux: HashMap<Method, matchit::Router<HandlerFn>> = Router::new();
+        add_route(
+            &mut mux,
+            "/cars",
+            Method::POST,
+            httputil::BoxCloneHandler::new(httputil::handler_fn(Svc::create_car)),
+        );
+        add_route(
+            &mut mux,
+            "/cars/:id",
+            Method::PUT,
+            httputil::BoxCloneHandler::new(httputil::handler_fn(Svc::update_car)),
+        );
+        add_route(
+            &mut mux,
+            "/cars",
+            Method::GET,
+            httputil::BoxCloneHandler::new(httputil::handler_fn(Svc::get_car_list)),
+        );
+        add_route(
+            &mut mux,
+            "/cars/:id",
+            Method::GET,
+            httputil::BoxCloneHandler::new(httputil::handler_fn(Svc::get_car_by_id)),
+        );
+        add_route(
+            &mut mux,
+            "/cars",
+            Method::DELETE,
+            httputil::BoxCloneHandler::new(httputil::handler_fn(Svc::delete_all_cars)),
+        );
+        add_route(
+            &mut mux,
+            "/cars/:id",
+            Method::DELETE,
+            httputil::BoxCloneHandler::new(httputil::handler_fn(Svc::delete_car)),
+        );
+
+        add_route(
+            &mut mux,
+            "/ctl/images",
+            Method::GET,
+            httputil::BoxCloneHandler::new(httputil::handler_fn(Svc::list_images)),
+        );
+        add_route(
+            &mut mux,
+            "/ctl/images",
+            Method::POST,
+            httputil::BoxCloneHandler::new(httputil::handler_fn(Svc::push_image)),
+        );
+        return mux;
+    }
 }
 
 impl hyper::service::Service<Request<Incoming>> for Svc {
@@ -197,147 +333,7 @@ impl hyper::service::Service<Request<Incoming>> for Svc {
     type Future = Pin<Box<dyn Future<Output = Result<Response<BoxBody>>> + Send>>;
 
     fn call(&mut self, req: Request<Incoming>) -> Self::Future {
-        let path = req.uri().path().to_owned();
-        let path_segments: Vec<&str> = path.split("/").collect::<Vec<&str>>();
-        let base_path = path_segments[1];
-        match (req.method(), base_path) {
-            (&Method::GET, "cars") => {
-                if path_segments.len() <= 2 {
-                    let res = self.get_car_list();
-                    return Box::pin(async { Ok(res) });
-                } else {
-                    let car_id = path_segments[2];
-
-                    if car_id.trim().is_empty() {
-                        let res = self.get_car_list();
-                        return Box::pin(async { Ok(res) });
-                    } else {
-                        let id: u32 = match car_id.trim().parse() {
-                            Ok(num) => num,
-                            Err(_) => {
-                                let res = mk_err_response(
-                                    StatusCode::BAD_REQUEST,
-                                    format!("invalid id={}, expect uint32 number", car_id),
-                                );
-                                return Box::pin(async { Ok(res) });
-                            }
-                        };
-                        let res = self.get_car_by_id(id);
-                        return Box::pin(async { Ok(res) });
-                    }
-                }
-            }
-
-            (&Method::DELETE, "cars") => {
-                if path_segments.len() <= 2 {
-                    let res = self.delete_all_cars();
-                    return Box::pin(async { Ok(res) });
-                } else {
-                    let car_id = path_segments[2];
-
-                    if car_id.trim().is_empty() {
-                        let res = self.delete_all_cars();
-                        return Box::pin(async { Ok(res) });
-                    } else {
-                        let id: u32 = match car_id.trim().parse() {
-                            Ok(num) => num,
-                            Err(_) => {
-                                let res = mk_err_response(
-                                    StatusCode::BAD_REQUEST,
-                                    format!("invalid id={}, expect uint32 number", car_id),
-                                );
-                                return Box::pin(async { Ok(res) });
-                            }
-                        };
-                        let res = self.delete_car(id);
-                        return Box::pin(async { Ok(res) });
-                    }
-                }
-            }
-
-            (&Method::POST, "cars") => {
-                let svc = self.clone();
-                let res = async move {
-                    match decode_request_body::<Car>(req).await {
-                        // the most tricky part is:
-                        //   we can't simply use self.create_car here, as Service trait's call fn will return a Future to caller.
-                        // and the compiler will complain:
-                        //
-                        //   fn call(&mut self, req: Request<Incoming>) -> Self::Future {
-                        //          - let's call the lifetime of this reference `'1`
-                        //               return Box::pin(res);
-                        //                                    returning this value requires that `'1` must outlive `'static`
-                        //
-                        // So i guess: once Svc is dead, what self pointed to is undefined
-                        // see: https://users.rust-lang.org/t/how-to-call-async-static-service-methods-in-hyper/66019
-                        //
-                        // Ok(new_car) => Ok(self.create_car(new_car)),
-                        Ok(new_car) => Ok(svc.create_car(new_car)),
-                        Err(e) => Ok(mk_err_response(
-                            StatusCode::BAD_REQUEST,
-                            format!("invalid json input:{e}"),
-                        )),
-                    }
-                };
-                return Box::pin(res);
-            }
-
-            (&Method::PUT, "cars") => {
-                if path_segments.len() <= 2 {
-                    return Box::pin(async { Ok(mk_err_response(StatusCode::NOT_FOUND, "")) });
-                }
-
-                let car_id_str = path_segments[2];
-                let car_id = match car_id_str.trim().parse::<u32>() {
-                    Ok(num) => num,
-                    Err(_) => {
-                        let res = mk_err_response(
-                            StatusCode::BAD_REQUEST,
-                            format!("invalid id={}, expect uint32 number", car_id_str),
-                        );
-                        return Box::pin(async { Ok(res) });
-                    }
-                };
-
-                let svc = self.clone();
-                let res = async move {
-                    match decode_request_body::<Car>(req).await {
-                        Ok(mut car) => {
-                            car.id = car_id;
-                            Ok(svc.update_car(car))
-                        }
-                        Err(e) => Ok(mk_err_response(
-                            StatusCode::BAD_REQUEST,
-                            format!("invalid json input:{e}"),
-                        )),
-                    }
-                };
-                return Box::pin(res);
-            }
-
-            (&Method::GET, "images") => {
-                let svc = self.clone();
-                let res = async move {
-                    let aert = svc
-                        .list_images(
-                            httputil::Context {
-                                vars: std::collections::HashMap::from([(
-                                    "k".to_owned(),
-                                    "v".to_owned(),
-                                )]),
-                            },
-                            req,
-                        )
-                        .await;
-                    Ok(aert)
-                };
-                return Box::pin(res);
-            }
-
-            // Return the 404 Not Found for other routes.
-            //_ => Box::pin(async { Ok(mk_err_response(StatusCode::NOT_FOUND, "")) }),
-            _ => Box::pin(Box::pin(route(self.mux.clone(), self.clone(), req))),
-        }
+        Box::pin(route(self.mux.clone(), self.clone(), req))
     }
 }
 
@@ -365,10 +361,8 @@ async fn main() -> Result<()> {
         // car_store: std::sync::Arc::new(*carstore),
         //
         car_store: std::sync::Arc::from(carstore),
-        mux: std::sync::Arc::new(build_router()),
+        mux: std::sync::Arc::new(Svc::build_router()),
     };
-    let router = build_router();
-    let _mux = std::sync::Arc::new(router);
     println!("Listening on http://{}", addr);
     loop {
         let (stream, _) = listener.accept().await?;
@@ -391,6 +385,7 @@ async fn main() -> Result<()> {
         //         println!("Error serving connection: {:?}", err);
         //     }
         // });
+        // so putting mux in Svc to solve it
         tokio::task::spawn(async move {
             if let Err(err) = http1::Builder::new().serve_connection(stream, svc).await {
                 println!("Error serving connection: {:?}", err);
@@ -434,23 +429,4 @@ fn route(
             Err(_) => Ok(mk_err_response(StatusCode::NOT_FOUND, "")),
         }
     }
-}
-
-fn build_router() -> Router {
-    let mut mux = Router::new();
-    mux.entry(Method::GET)
-        .or_default()
-        .insert(
-            "/images",
-            httputil::BoxCloneHandler::new(httputil::handler_fn(Svc::list_images)).into(),
-        )
-        .unwrap();
-    mux.entry(Method::POST)
-        .or_default()
-        .insert(
-            "/images",
-            httputil::BoxCloneHandler::new(httputil::handler_fn(Svc::list_images)).into(),
-        )
-        .unwrap();
-    return mux;
 }
