@@ -29,7 +29,6 @@ use std::pin::Pin;
 const INTERNAL_SERVER_ERROR: &str = "Internal Server Error";
 
 type GenericError = Box<dyn std::error::Error + Send + Sync>;
-type Result<T> = std::result::Result<T, GenericError>;
 type BoxBody = http_body_util::combinators::BoxBody<Bytes, hyper::Error>;
 
 fn full<T: Into<Bytes>>(chunk: T) -> BoxBody {
@@ -58,9 +57,7 @@ where
     }
 }
 
-async fn decode_request_body<T: DeserializeOwned>(
-    req: Request<Incoming>,
-) -> std::result::Result<T, String> {
+async fn decode_request_body<T: DeserializeOwned>(req: Request<Incoming>) -> Result<T, String> {
     match req.collect().await {
         Ok(bytes) => {
             let buf = bytes.aggregate();
@@ -330,7 +327,7 @@ impl Svc {
 impl hyper::service::Service<Request<Incoming>> for Svc {
     type Response = Response<BoxBody>;
     type Error = GenericError;
-    type Future = Pin<Box<dyn Future<Output = Result<Response<BoxBody>>> + Send>>;
+    type Future = Pin<Box<dyn Future<Output = Result<Response<BoxBody>, GenericError>> + Send>>;
 
     fn call(&mut self, req: Request<Incoming>) -> Self::Future {
         Box::pin(route(self.mux.clone(), self.clone(), req))
@@ -338,7 +335,7 @@ impl hyper::service::Service<Request<Incoming>> for Svc {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), GenericError> {
     pretty_env_logger::init();
     let addr = SocketAddr::from(([127, 0, 0, 1], 9100));
     let listener = TcpListener::bind(addr).await?;
@@ -402,7 +399,7 @@ fn route(
     mux: std::sync::Arc<Router>,
     s: Svc,
     req: Request<Incoming>,
-) -> impl Future<Output = Result<Response<BoxBody>>> + Send {
+) -> impl Future<Output = Result<Response<BoxBody>, GenericError>> + Send {
     async move {
         // find the subrouter for this request method
         let router = match mux.get(req.method()) {
