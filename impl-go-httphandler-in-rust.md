@@ -1,9 +1,9 @@
 # How to implement Golang HTTP Handler interface like Rust Trait for router
-The goal: register routes like Golang with [ibraheemdev/matchit](https://github.com/ibraheemdev/matchit) and our Handler implementation
+The goal: registering routes like Golang with [ibraheemdev/matchit](https://github.com/ibraheemdev/matchit) and our Handler implementation
 
 As an HTTP server become larger, it's time to import an HTTP multiplexer (akka. service dispather). The multiplexer can make route dispather faster, parse URL path paramether in one place, and provide more readable route information. Code comparasion are at commit [route all by mux](https://github.com/phosae/qappctl-shim-rs/commit/c6516cf96115920d8ef29aed8050a57b63299363).
 
-In Golang, with help of standard library `net/http` or 3rd library like [gorilla mux](github.com/gorilla/mux), we can register HTTP routes like this:
+In Golang, with help of standard library `net/http` or 3rd library like [gorilla/mux](https://github.com/gorilla/mux), we can register HTTP routes like this:
 ```go
 router := mux.NewRouter()
 router.HandleFunc("/images", server.listImagesHandler).Methods("GET")
@@ -31,7 +31,7 @@ pub trait Service<Request> {
     fn call(&mut self, req: Request) -> Self::Future;
 }
 ```
-The biggest differnece here is that the async function in Rust is implemented as Future Trait exposing to developer, while in Golang there no difference in sync or async code(just some channel). Async code in Rust is more complicated and the way Rust managing memory make it even harder. We will see it later.
+The biggest differnece here is that the async function in Rust is implemented as Future Trait exposing to developer, while in Golang there's no difference in sync or async code(just some channel). Async code in Rust is more complicated and the way Rust managing memory make it even harder. We will see it later.
 
 Since there's no default HTTP multiplexer in hyper, [ibraheemdev/matchit] will be used here. Thing left to us is implementing something like Go's `http.Handler` interface and `http.HandleFunc` in `net/http`. The first is definately, a Trait, for dynamic dispatching, and the latter will turn any async function with same signature into the same Trait.
 
@@ -188,7 +188,7 @@ fn test_svc_fn() {
 ```
 It works. The direction is clear: wrap the function from returning dynamic `impl Future<Output = Vec<std::string::String>>` to `Pin<Box<dyn Future<Output = Vec<String>>>>`.
 
-After read the article [Inventing the Service trait] and the [tower-rs/tower] source code, especially [Service Trait](https://github.com/tower-rs/tower/blob/tower-0.4.13/tower-service/src/lib.rs), [ServiceExt Trait](https://github.com/tower-rs/tower/blob/tower-0.4.13/tower/src/util/mod.rs), [BoxService](https://github.com/tower-rs/tower/blob/tower-0.4.13/tower/src/util/boxed/sync.rs) and [BoxCloneService] parts, I find thing can be done by adding  some helper function `map_future` for Service Trait. 
+After read the article [Inventing the Service trait] and the [tower-rs/tower] source code, especially [Service Trait](https://github.com/tower-rs/tower/blob/tower-0.4.13/tower-service/src/lib.rs), [ServiceExt Trait](https://github.com/tower-rs/tower/blob/tower-0.4.13/tower/src/util/mod.rs), [BoxService](https://github.com/tower-rs/tower/blob/tower-0.4.13/tower/src/util/boxed/sync.rs) and [BoxCloneService] parts, I find things can be done by adding  some helper function `map_future` for `SvcHandler Trait`. 
 
 ```rust
 trait SvcHanlderExt: SvcHandler {
@@ -242,7 +242,7 @@ type mismatch in closure arguments
 expected closure signature `fn(impl Future<Output = Vec<std::string::String>>) -> _`
    found closure signature `fn((dyn Future<Output = Vec<std::string::String>> + 'static)) -> _`
 ```
-But if we edit `dyn Future<Output = Vec<String>>` to `impl Future<Output = Vec<String>>`, it complains that 
+But if we edit `dyn Future<Output = Vec<String>>` into `impl Future<Output = Vec<String>>`, it complains that 
 ```
 `impl Trait` only allowed in function and inherent method return types, not in closure param`
 ```
@@ -339,9 +339,9 @@ fn test_box_svc() {
 }
 ```
 ## make SvcHandler Trait generic
-Based on previous toy `SvcHandler Trait`, let's make a more generic version. New goals here are:
+Based on previous toy `SvcHandler Trait`, let's make a more generic version. New goals this time are:
 - import new argument `Context` to carry variables include URL path parameter or some other framework info. Though I know there's some thread-local solution in Rust, this time we just mimic Golang
-- turn `Svc` to generic parameter `STRUCT`, so the handler can be method for any struct
+- turn `Svc` to generic parameter `STRUCT`, so the handler can wrap from method for any struct
 - make handler can be passed between different threads
 
 ```
@@ -429,11 +429,11 @@ You guys would better remember that `pass by reference` in Rust is borrow, `pass
 2. [Inventing the Service trait](https://tokio.rs/blog/2021-05-14-inventing-the-service-trait)
 3. [Programming Rust 2nd Edition](https://www.oreilly.com/library/view/programming-rust-2nd/9781492052586/)
 
-[1]: (https://eli.thegreenplace.net/2021/life-of-an-http-request-in-a-go-server/)
-[2]: (https://tokio.rs/blog/2021-05-14-inventing-the-service-trait)
-[Inventing the Service trait]: (https://tokio.rs/blog/2021-05-14-inventing-the-service-trait)
-[Programming Rust 2nd Edition]: (https://www.oreilly.com/library/view/programming-rust-2nd/9781492052586/)
-[hyper]: (https://github.com/hyperium/hyper)
-[ibraheemdev/matchit]: (https://github.com/ibraheemdev/matchit)
-[tower-rs/tower]: (https://github.com/tower-rs/tower)
-[BoxCloneService]: (https://github.com/tower-rs/tower/blob/tower-0.4.13/tower/src/util/boxed_clone.rs) 
+[1]: https://eli.thegreenplace.net/2021/life-of-an-http-request-in-a-go-server
+[2]: https://tokio.rs/blog/2021-05-14-inventing-the-service-trait
+[Inventing the Service trait]: https://tokio.rs/blog/2021-05-14-inventing-the-service-trait
+[Programming Rust 2nd Edition]: https://www.oreilly.com/library/view/programming-rust-2nd/9781492052586
+[hyper]: https://github.com/hyperium/hyper
+[ibraheemdev/matchit]: https://github.com/ibraheemdev/matchit
+[tower-rs/tower]: https://github.com/tower-rs/tower
+[BoxCloneService]: https://github.com/tower-rs/tower/blob/tower-0.4.13/tower/src/util/boxed_clone.rs
