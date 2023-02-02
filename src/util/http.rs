@@ -1,30 +1,3 @@
-/*
-I once want to build a trait in `lifetime_handler_sucks.rs`
-
-    trait Handler<'a, STRUCT, Request> {
-        type Response;
-        type Future: Future<Output = Self::Response> + 'a;
-        fn call(&'a mut self, s: &'a STRUCT, ctx: Context, r: Request) -> Self::Future;
-    }
-
-because in Golang passing STRUCT by reference is so common, but in Rust, it sucks.
-after read axum's [sqlx-postgres exmaple](https://github.com/tokio-rs/axum/tree/main/examples/sqlx-postgres) and
-  read some state implemention code of axum, like
-    // put state in Router struct
-    let app = Router::new()
-        .route(
-            "/",
-            get(using_connection_pool_extractor).post(using_connection_extractor),
-        )
-        .with_state(pool);
-
-    // consume state object
-    fn using_connection_pool_extractor(State(pool): State<PgPool>
-
-internally axum's sate is based on Clone.
-
-So finally I find impl trait with reference parameter is unneccessary, because Arc<T>, Rc<T> is well called `pass by reference` in Rust.
-*/
 use std::{future::Future, pin::Pin};
 
 pub struct Context {
@@ -49,7 +22,10 @@ where
         (**self).call(s, ctx, request)
     }
 }
+// === ported from tower, don't known how it means.
 
+// === ported from tower and known how it means.
+// Box<dyn Trait> won't implement boxed Trait automatically, manually make it by `impl<T: Trait + ?Sized> Trait for Box<T>`
 impl<S, STRUCT, Request> Handler<STRUCT, Request> for Box<S>
 where
     S: Handler<STRUCT, Request> + ?Sized,
@@ -61,7 +37,7 @@ where
         (**self).call(s, ctx, request)
     }
 }
-// === ported from tower, don't known how it means.
+// === ported from tower and known how it means.
 
 #[derive(Copy, Clone)]
 pub struct HandlerFn<F>(F);
@@ -172,7 +148,6 @@ impl<STRUCT, Request, Response> Handler<STRUCT, Request> for BoxHandler<STRUCT, 
 }
 
 // === for multi thread
-//
 // ported from https://github.com/tower-rs/tower/pull/615/files
 pub type ABoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>; // box future with lifetime parameter a'
 

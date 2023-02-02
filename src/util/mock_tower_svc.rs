@@ -13,6 +13,11 @@ impl Svc {
         vec!["a".to_owned()]
     }
 
+    #[allow(dead_code)]
+    async fn aa(self) -> Vec<String> {
+        vec!["aa".to_owned()]
+    }
+
     // two fn b(&Svc)-> impl Future<Output = Vec<String>> are different different opaque types
     #[allow(dead_code)]
     fn b<'a>(self) -> impl Future<Output = Vec<String>> + 'a {
@@ -24,15 +29,15 @@ impl Svc {
 
     #[allow(dead_code)]
     fn box_a(self) -> Pin<Box<dyn Future<Output = Vec<String>>>> {
-        Box::pin(async { vec!["a".to_owned()] })
+        Box::pin(self.a())
     }
     #[allow(dead_code)]
-    fn box_b(self) -> Pin<Box<dyn Future<Output = Vec<String>>>> {
-        Box::pin(async { vec!["b".to_owned()] })
+    fn box_aa(self) -> Pin<Box<dyn Future<Output = Vec<String>>>> {
+        Box::pin(self.aa())
     }
 }
 
-#[derive(Copy, Clone)]
+//#[derive(Copy, Clone)]
 struct SvcFn<F>(F);
 
 #[allow(dead_code)]
@@ -58,20 +63,22 @@ trait SvcHandler {
     fn call(&mut self, s: Svc) -> Self::Future;
 }
 
-#[test]
-fn test_svc() {
-    //type Router = std::collections::HashMap<Method, matchit::Router>;
-    let _svc = Svc {};
+// #[test]
+// fn test_svc_fn_notpass() {
+//     let ha1: Box<dyn SvcHandler<Ret = Vec<String>, Future = _>> = Box::new(svc_fn(Svc::a));
+//     let ha2: Box<dyn SvcHandler<Ret = Vec<String>, Future = _>> = Box::new(svc_fn(Svc::aa));
+//     let mut router = matchit::Router::new();
+//     router.insert("/v1/images", ha1).unwrap();
+//     router.insert("/v1/images/push", ha2).unwrap();
+// }
 
-    //two Box<dyn SvcHanlder<Future = impl Future<Output = Vec<std::string::String>>>> are different type
-    //let xha1: Box<dyn SvcHanlder<Ret = Vec<String>, Future = _>> = Box::new(svc_fn(Svc::a));
-    //let xha2: Box<dyn SvcHanlder<Ret = Vec<String>, Future = _>> = Box::new(svc_fn(Svc::b)); // but
-    //two Box<dyn SvcHanlder<Future = Pin<Box<dyn Future<Output = Vec<String>>>>>> are same type
-    let ha1: Box<dyn SvcHandler<Ret = Vec<String>, Future = _>> = Box::new(svc_fn(Svc::box_a));
-    let ha2: Box<dyn SvcHandler<Ret = Vec<String>, Future = _>> = Box::new(svc_fn(Svc::box_a));
+#[test]
+fn test_svc_fn() {
+    let box_ha1: Box<dyn SvcHandler<Ret = Vec<String>, Future = _>> = Box::new(svc_fn(Svc::box_a));
+    let box_ha2: Box<dyn SvcHandler<Ret = Vec<String>, Future = _>> = Box::new(svc_fn(Svc::box_aa));
     let mut router = matchit::Router::new();
-    router.insert("/v1/images", ha1).unwrap();
-    router.insert("/v1/images/push", ha2).unwrap();
+    router.insert("/box_a", box_ha1).unwrap();
+    router.insert("/box_aa", box_ha2).unwrap();
 }
 
 trait SvcHanlderExt: SvcHandler {
@@ -122,6 +129,12 @@ where
     }
 }
 
+// #[test]
+// fn test_map_fut_failed() {
+//     let ha1 =
+//         svc_fn(Svc::a).map_future(|f: impl Future<Output = Vec<String>>| Box::pin(f) as _);
+// }
+
 #[allow(dead_code)]
 type BoxFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 
@@ -148,11 +161,6 @@ impl<T> SvcHandler for BoxSvcHanlder<T> {
     fn call(&mut self, s: Svc) -> BoxFuture<T> {
         self.inner.call(s)
     }
-}
-
-#[allow(dead_code)]
-async fn oa(_: &mut Svc) -> Vec<String> {
-    vec!["a".to_owned()]
 }
 
 #[test]

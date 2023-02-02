@@ -75,60 +75,7 @@ func ListImages() (images []Image, err error) {
 ```
 more at [ctl.rs](https://github.com/phosae/qappctl-shim-rs/blob/c6516cf96115920d8ef29aed8050a57b63299363/src/ctl.rs) and [wrapper.go](https://github.com/phosae/qappctl-shim/blob/0553b468bd1d6bd7c0e020f70e27a9957ceec338/wrapper.go)
 
-## HTTP router: mock Golang HTTP Handler interface
-register routes like Golang with [ibraheemdev/matchit](https://github.com/ibraheemdev/matchit) and our Handler implementation
+## import HTTP router
+As an HTTP server become larger, it's time to import an HTTP multiplexer (akka. service dispather). 
 
-As an HTTP server become larger, it's time to import an HTTP multiplexer (akka. service dispather). The multiplexer can make route dispather faster, parse URL path paramether in one place, and provide more readable route information. Code comparasion are at commit (route all by mux)[https://github.com/phosae/qappctl-shim-rs/commit/c6516cf96115920d8ef29aed8050a57b63299363].
-
-In Golang, with help of standard library `net/http` or 3rd library like `[gorilla mux](github.com/gorilla/mux)`, we can register HTTP routes like this:
-```go
-router := mux.NewRouter()
-router.HandleFunc("/images", server.listImagesHandler).Methods("GET")
-router.HandleFunc("/images", server.pushImageHandler).Methods("POST")
-```
-The Go standard library's HTTP server do low level things in proto and take a Handler interface for incoming request handling
-```go
-type Handler interface {
-	ServeHTTP(ResponseWriter, *Request)
-}
-```
-A HTTP multiplexer is just a Handler that use list/map/tree to holds routes and Handles and delegate requests to matching Handler.[[1]] A helper function called `http.HandleFunc` in `net/http` turns any Go function with signature `func(w http.ResponseWriter, req *http.Request)` into Handler interface, and then it call be registered to multiplexer.
-
-In Rust, as we build our HTTP server on top of [hyper](https://github.com/hyperium/hyper), which, similarly, take a Service Trait for incoming request handling
-
-```rust
-pub trait Service<Request> {
-    /// Responses given by the service.
-    type Response;
-    /// Errors produced by the service.
-    type Error;
-    /// The future response value.
-    type Future: Future<Output = Result<Self::Response, Self::Error>>;
-    /// Process the request and return the response asynchronously.
-    fn call(&mut self, req: Request) -> Self::Future;
-}
-```
-The biggest differnece here is that the async function in Rust is implemented as Future Trait exposing to developer, while in Golang there no difference in sync or async code(just some channel). Async code in Rust is more complicated and the way Rust managing memory make it even harder. We will see it later.
-
-Since there's no default HTTP multiplexer in hyper, [[ibraheemdev/matchit]] will be used here. Thing left to us is implementing something like Go's `http.Handler` interface and `http.HandleFunc` in `net/http`. The first is definately, a Trait, for dynamic dispatching, and the latter will turn any async function with same signature into the same Trait.
-
-The comming Trait implementation is inspire by tower's Service Trait[[3]].
-
-### mock tower's Service Trait
-let's start from minimal.
-
-### the finally
-Finally we can do thing like this in Rust
-``` Rust
-let mut mux: HashMap<Method, matchit::Router<HandlerFn>> = Router::new();
-add_route(&mut mux, "/ctl/images", Method::GET, BoxCloneHandler::new(handler_fn(Svc::list_images)));
-add_route(&mut mux, "/ctl/images", Method::POST, BoxCloneHandler::new(handler_fn(Svc::push_image)));
-```
-
-### Reference
-[1]: [Life of an HTTP request in a Go server](https://eli.thegreenplace.net/2021/life-of-an-http-request-in-a-go-server/)
-[2]: [Programming Rust: Fast, Safe Systems Development 2nd Edition](https://www.oreilly.com/library/view/programming-rust-2nd/9781492052586/)
-[3]: [Inventing the Service trait](https://tokio.rs/blog/2021-05-14-inventing-the-service-trait)
-[4]: [tower guides: building a middleware from scratch](https://github.com/tower-rs/tower/blob/master/guides/building-a-middleware-from-scratch.md)
-[hyper]: [hyper](https://github.com/hyperium/hyper)
-[ibraheemdev/matchit]: [ibraheemdev/matchit](https://github.com/ibraheemdev/matchit)
+Go [How to implement Golang HTTP Handler interface like Rust Trait for router](./impl-go-httphandler-in-rust.md) for detail.
