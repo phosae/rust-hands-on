@@ -1,5 +1,6 @@
 #![deny(warnings)]
 mod ctl;
+mod middleware;
 mod store;
 mod util;
 
@@ -257,6 +258,23 @@ impl Svc {
         }
     }
 
+    async fn sleep(self, ctx: httputil::Context, _: Request<Incoming>) -> Response<BoxBody> {
+        let second = match ctx.vars.get("duration") {
+            Some(sec_str) => match sec_str.trim().parse() {
+                Ok(num) => num,
+                Err(_) => 1,
+            },
+            None => {
+                return mk_err_response(
+                    StatusCode::BAD_REQUEST,
+                    format!("expect second pamameter in url path"),
+                )
+            }
+        };
+        tokio::time::sleep(std::time::Duration::from_millis(second)).await;
+        mk_json_response("{}")
+    }
+
     fn build_router() -> Router {
         fn add_route(
             mux: &mut HashMap<Method, matchit::Router<HandlerFn>>,
@@ -320,6 +338,13 @@ impl Svc {
             Method::POST,
             httputil::BoxCloneHandler::new(httputil::handler_fn(Svc::push_image)),
         );
+
+        add_route(
+            &mut mux,
+            "/test/sleep/:duration",
+            Method::GET,
+            httputil::BoxCloneHandler::new(httputil::handler_fn(Svc::sleep)),
+        );
         return mux;
     }
 }
@@ -360,6 +385,7 @@ async fn main() -> Result<(), GenericError> {
         car_store: std::sync::Arc::from(carstore),
         mux: std::sync::Arc::new(Svc::build_router()),
     };
+    let svc = middleware::timeout::Timeout::new(svc, std::time::Duration::from_secs(3));
     println!("Listening on http://{}", addr);
     loop {
         let (stream, _) = listener.accept().await?;
@@ -416,11 +442,11 @@ fn route(
                     ctx.vars.insert(p.0.to_owned(), p.1.to_owned());
                 }
                 // lock the service for a very short time, just to clone the service
-                let _res = {
+                let res = {
                     let mut ha = found.value.lock().unwrap().clone();
                     httputil::Handler::call(&mut ha, s, ctx, req).await
                 };
-                Ok(_res)
+                Ok(res)
             }
             // if we there is no matching service, call the 404 handler
             Err(_) => Ok(mk_err_response(StatusCode::NOT_FOUND, "")),

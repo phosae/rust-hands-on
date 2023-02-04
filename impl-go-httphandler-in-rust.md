@@ -5,12 +5,14 @@ As an HTTP server become larger, it's time to import an HTTP multiplexer (akka. 
 
 In Golang, with help of standard library `net/http` or 3rd library like [gorilla/mux](https://github.com/gorilla/mux), we can register HTTP routes like this:
 ```go
+//Golang Code
 router := mux.NewRouter()
 router.HandleFunc("/images", server.listImagesHandler).Methods("GET")
 router.HandleFunc("/images", server.pushImageHandler).Methods("POST")
 ```
 The Go standard library's HTTP server do low level things in proto and take a Handler interface for incoming request handling
 ```go
+//Golang Code
 type Handler interface {
 	ServeHTTP(ResponseWriter, *Request)
 }
@@ -20,6 +22,7 @@ A HTTP multiplexer is just a Handler that use list/map/tree to holds routes and 
 In Rust, as we build our HTTP server on top of [hyper](https://github.com/hyperium/hyper), which, similarly, take a Service Trait for incoming request handling
 
 ```rust
+// Rust Code
 pub trait Service<Request> {
     /// Responses given by the service.
     type Response;

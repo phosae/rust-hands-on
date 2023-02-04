@@ -6,7 +6,7 @@ cargo run
 ## v1: write a stateless car server
 copy & paste codes 
 - [arealesramirez/rust-rest-api-hyper](https://github.com/arealesramirez/rust-rest-api-hyper) for apis
-    - GET /cars = to fetch all cars
+    - GET /cars to fetch all cars
     - GET /cars/:id = to fetch a specific car
     - POST /cars = to create a new car
 - [hyper@1.0.0 examples](https://github.com/hyperium/hyper/tree/v1.0.0-rc.2/examples)
@@ -46,6 +46,11 @@ add_route(&mut mux, "/ctl/images", Method::GET, BoxCloneHandler::new(handler_fn(
 add_route(&mut mux, "/ctl/images", Method::POST, BoxCloneHandler::new(handler_fn(Svc::push_image)));
 ```
 see [CHANGELOG-v3](CHANGELOG-v3.md)
+
+## v4
+### timeout middleware
+- add timeout middleware
+- GET /test/sleep/:duration to trigger a timeout
 
 ## [TODO]
 - containerize binary as image and use github actions to build images
