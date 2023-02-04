@@ -367,10 +367,10 @@ async fn main() -> Result<(), GenericError> {
 
     let carstore = match std::env::var("DB_TYPE") {
         // Ok(dbtyp) => match dbtyp.as_str() {
-        //     "sqlite" => &SQLiteCarStore::new() as &dyn CarStore, // temporary value is freed at the end of this statement
-        //     _ => &MemCarStore::init() as &dyn CarStore, // temporary value is freed at the end of this statement
+        //     "sqlite" => &SQLiteCarStore::new() as &dyn CarStore, // temporary value get dropped at the end of this statement
+        //     _ => &MemCarStore::init() as &dyn CarStore, // temporary value get dropped at the end of this statement
         // },
-        // Err(_) => &MemCarStore::init() as &dyn CarStore, //temporary value is freed at the end of this statement
+        // Err(_) => &MemCarStore::init() as &dyn CarStore, //temporary value get dropped at the end of this statement
         Ok(dbtyp) => match dbtyp.as_str() {
             "sqlite" => Box::new(SQLiteCarStore::new()) as Box<dyn CarStore + Send + Sync>,
             _ => Box::new(MemCarStore::init()) as Box<dyn CarStore + Send + Sync>,
