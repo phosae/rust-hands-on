@@ -45,12 +45,14 @@ let mut mux: HashMap<Method, matchit::Router<HandlerFn>> = Router::new();
 add_route(&mut mux, "/ctl/images", Method::GET, BoxCloneHandler::new(handler_fn(Svc::list_images)));
 add_route(&mut mux, "/ctl/images", Method::POST, BoxCloneHandler::new(handler_fn(Svc::push_image)));
 ```
-see [CHANGELOG-v3](CHANGELOG-v3.md)
+See [CHANGELOG-v3](CHANGELOG-v3.md)
 
 ## v4
 ### timeout middleware
 - add timeout middleware
 - GET /test/sleep/:duration to trigger a timeout
+
+See [CHANGELOG-v4](CHANGELOG-v4.md)
 
 ## [TODO]
 - containerize binary as image and use github actions to build images
