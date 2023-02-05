@@ -48,7 +48,7 @@ add_route(&mut mux, "/ctl/images", Method::POST, BoxCloneHandler::new(handler_fn
 See [CHANGELOG-v3](CHANGELOG-v3.md)
 
 ## v4
-### timeout middleware
+### HTTP Service middleware
 - GET /test/sleep/:duration to trigger a timeout
 - add timeout middleware, `curl -i 127.1:9100/test/sleep/3100`
 - add log middleware
