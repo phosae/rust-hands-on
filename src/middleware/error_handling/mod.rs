@@ -73,7 +73,10 @@ where
         let future = Box::pin(async move {
             match inner.oneshot(req).await {
                 Ok(res) => Ok(res.into_response()),
-                Err(err) => Ok(f(err).await.into_response()),
+                Err(err) => {
+                    let map_resp = f(err).await.into_response();
+                    Ok(map_resp)
+                }
             }
         });
 

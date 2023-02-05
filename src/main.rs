@@ -29,7 +29,6 @@ use std::pin::Pin;
 
 const INTERNAL_SERVER_ERROR: &str = "Internal Server Error";
 
-type GenericError = Box<dyn std::error::Error + Send + Sync>;
 type BoxBody = http_body_util::combinators::BoxBody<Bytes, hyper::Error>;
 
 fn full<T: Into<Bytes>>(chunk: T) -> BoxBody {
@@ -343,8 +342,8 @@ impl Svc {
 
 impl hyper::service::Service<Request<Incoming>> for Svc {
     type Response = Response<BoxBody>;
-    type Error = GenericError;
-    type Future = Pin<Box<dyn Future<Output = Result<Response<BoxBody>, GenericError>> + Send>>;
+    type Error = tower::BoxError;
+    type Future = Pin<Box<dyn Future<Output = Result<Response<BoxBody>, tower::BoxError>> + Send>>;
 
     fn call(&mut self, req: Request<Incoming>) -> Self::Future {
         Box::pin(route(self.mux.clone(), self.clone(), req))
@@ -352,7 +351,7 @@ impl hyper::service::Service<Request<Incoming>> for Svc {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), GenericError> {
+async fn main() -> Result<(), tower::BoxError> {
     pretty_env_logger::init();
     let addr = SocketAddr::from(([127, 0, 0, 1], 9100));
     let listener = TcpListener::bind(addr).await?;
@@ -397,6 +396,7 @@ async fn main() -> Result<(), GenericError> {
             .append("Server-Owner", HeaderValue::from_str("zenx").unwrap());
         Response::from_parts(parts, body)
     });
+    // this layer will map the hyper::Error returned from the previous into tower::BoxError.
     let svc = middleware::error_handling::HandleError::new(svc, handle_error);
     let svc = middleware::log::LogRequest::new(svc);
 
@@ -438,7 +438,7 @@ fn route(
     mux: std::sync::Arc<Router>,
     s: Svc,
     req: Request<Incoming>,
-) -> impl Future<Output = Result<Response<BoxBody>, GenericError>> + Send {
+) -> impl Future<Output = Result<Response<BoxBody>, tower::BoxError>> + Send {
     async move {
         // find the subrouter for this request method
         let router = match mux.get(req.method()) {

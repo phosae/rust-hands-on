@@ -1,9 +1,8 @@
-use std::{pin::Pin, task::Poll, time::Instant};
-
 use hyper::service::Service;
 use hyper::Request;
 use pin_project_lite::pin_project;
 use std::future::Future;
+use std::{pin::Pin, task::Poll, time::Instant};
 
 pin_project! {
     pub struct ResponseFuture<F> {
@@ -31,9 +30,8 @@ where
                 );
                 return Poll::Ready(result);
             }
-            Poll::Pending => {}
+            Poll::Pending => Poll::Pending,
         }
-        Poll::Pending
     }
 }
 
@@ -72,3 +70,26 @@ where
         }
     }
 }
+
+// #[derive(Debug, Clone)]
+// struct FailureLogRequest<S> {
+//     inner: S,
+// }
+
+// impl<S, ReqBody> Service<Request<ReqBody>> for FailureLogRequest<S>
+// where
+//     S: Service<Request<ReqBody>>,
+// {
+//     type Response = S::Response;
+//     type Error = S::Error;
+//     type Future = ResponseFuture<S::Future>;
+
+//     fn call(&mut self, req: Request<ReqBody>) -> Self::Future {
+//         async {
+//             let start = std::time::Instant::now();
+//             let response = self.inner.call(req).await;
+//             println!("elapsed: {:.2?} ms", start.elapsed().as_millis());
+//             response
+//         }
+//     }
+// }

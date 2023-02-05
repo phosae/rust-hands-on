@@ -49,15 +49,20 @@ See [CHANGELOG-v3](CHANGELOG-v3.md)
 
 ## v4
 ### timeout middleware
-- add timeout middleware
 - GET /test/sleep/:duration to trigger a timeout
+- add timeout middleware, `curl -i 127.1:9100/test/sleep/3100`
+- add log middleware
+- add auth middleware, `curl -i 127.1:9100/test/sleep/3100 -H 'Bearer: zenx'`
+- add MapResponse middleware
+- add error_handling middleware
 
 See [CHANGELOG-v4](CHANGELOG-v4.md)
 
 ## [TODO]
+- layerize middlewares
+- all HTTP handler return Serializable T directly
 - containerize binary as image and use github actions to build images
-- integrate with [tower middleware](github.com/tower-rs/tower)
-- Authentication(base on tower middleware) and GraphQL (Optional)
+- support GraphQL (Optional)
 - OpenAPI and Swagger (Optional)
   * code generator (maybe)
   * OpenAPI Specification from code comments

@@ -38,6 +38,14 @@ impl std::error::Error for Error {
     }
 }
 
+impl From<hyper::Error> for Error {
+    fn from(he: hyper::Error) -> Self {
+        Error {
+            inner: tower::BoxError::from(he),
+        }
+    }
+}
+
 pub fn boxed<B>(body: B) -> BoxBody
 where
     B: http_body_util::BodyExt<Data = bytes::Bytes> + Sync + Send + 'static,
@@ -72,6 +80,30 @@ where
         let mut res = self.1.into_response();
         *res.status_mut() = self.0;
         res
+    }
+}
+
+impl<T, E> IntoResponse for Result<T, E>
+where
+    T: IntoResponse,
+    E: IntoResponse,
+{
+    fn into_response(self) -> Response {
+        match self {
+            Ok(value) => value.into_response(),
+            Err(err) => err.into_response(),
+        }
+    }
+}
+
+impl<B, F, E> IntoResponse for http_body_util::combinators::MapErr<B, F>
+where
+    B: http_body::Body<Data = Bytes> + Sync + Send + 'static,
+    F: FnMut(B::Error) -> E + Sync + Send + 'static,
+    E: Into<tower::BoxError>,
+{
+    fn into_response(self) -> Response {
+        Response::new(boxed(self))
     }
 }
 
