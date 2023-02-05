@@ -1,15 +1,15 @@
 #![deny(warnings)]
 mod ctl;
+mod http;
 mod middleware;
 mod store;
-mod util;
-
-use util::http as httputil;
 
 use bytes::{Buf, Bytes};
+use http::into_response::IntoResponse;
 use http_body_util::{BodyExt, Full};
 use hyper::body::Incoming;
 use hyper::header;
+use hyper::http::HeaderValue;
 use hyper::server::conn::http1;
 use hyper::{Method, Request, Response, StatusCode};
 use serde::de::DeserializeOwned;
@@ -108,18 +108,14 @@ impl Svc {
         }
     }
 
-    async fn get_car_list(self, _: httputil::Context, _: Request<Incoming>) -> Response<BoxBody> {
+    async fn get_car_list(self, _: http::Context, _: Request<Incoming>) -> Response<BoxBody> {
         match self.car_store.get_all_cars() {
             Ok(cars) => mk_json_response(&cars),
             Err(e) => Svc::store_err_to_resp(e),
         }
     }
 
-    async fn get_car_by_id(
-        self,
-        ctx: httputil::Context,
-        _: Request<Incoming>,
-    ) -> Response<BoxBody> {
+    async fn get_car_by_id(self, ctx: http::Context, _: Request<Incoming>) -> Response<BoxBody> {
         match ctx.vars.get("id") {
             Some(car_id) => {
                 let id: u32 = match car_id.trim().parse() {
@@ -142,7 +138,7 @@ impl Svc {
         }
     }
 
-    async fn create_car(self, _: httputil::Context, req: Request<Incoming>) -> Response<BoxBody> {
+    async fn create_car(self, _: http::Context, req: Request<Incoming>) -> Response<BoxBody> {
         match decode_request_body::<Car>(req).await {
             Ok(new_car) => {
                 if new_car.year <= 0 {
@@ -163,7 +159,7 @@ impl Svc {
         }
     }
 
-    async fn update_car(self, ctx: httputil::Context, req: Request<Incoming>) -> Response<BoxBody> {
+    async fn update_car(self, ctx: http::Context, req: Request<Incoming>) -> Response<BoxBody> {
         let car_id = match ctx.vars.get("id") {
             Some(car_id) => match car_id.trim().parse::<u32>() {
                 Ok(num) => num,
@@ -197,7 +193,7 @@ impl Svc {
         }
     }
 
-    async fn delete_car(self, ctx: httputil::Context, _: Request<Incoming>) -> Response<BoxBody> {
+    async fn delete_car(self, ctx: http::Context, _: Request<Incoming>) -> Response<BoxBody> {
         match ctx.vars.get("id") {
             Some(car_id) => {
                 let id: u32 = match car_id.trim().parse() {
@@ -220,11 +216,7 @@ impl Svc {
         }
     }
 
-    async fn delete_all_cars(
-        self,
-        _: httputil::Context,
-        _: Request<Incoming>,
-    ) -> Response<BoxBody> {
+    async fn delete_all_cars(self, _: http::Context, _: Request<Incoming>) -> Response<BoxBody> {
         match self.car_store.delete_all_cars() {
             Ok(()) => mk_json_response("{}"),
             Err(e) => Self::store_err_to_resp(e),
@@ -233,7 +225,7 @@ impl Svc {
 
     fn list_images(
         self,
-        _: httputil::Context,
+        _: http::Context,
         _: Request<Incoming>,
     ) -> impl Future<Output = Response<BoxBody>> {
         async { ret_to_resp(ctl::list_images()) }
@@ -241,7 +233,7 @@ impl Svc {
 
     fn push_image(
         self,
-        _: httputil::Context,
+        _: http::Context,
         r: Request<Incoming>,
     ) -> impl Future<Output = Response<BoxBody>> {
         async {
@@ -258,7 +250,7 @@ impl Svc {
         }
     }
 
-    async fn sleep(self, ctx: httputil::Context, _: Request<Incoming>) -> Response<BoxBody> {
+    async fn sleep(self, ctx: http::Context, _: Request<Incoming>) -> Response<BoxBody> {
         let second = match ctx.vars.get("duration") {
             Some(sec_str) => match sec_str.trim().parse() {
                 Ok(num) => num,
@@ -280,7 +272,7 @@ impl Svc {
             mux: &mut HashMap<Method, matchit::Router<HandlerFn>>,
             path: &str,
             methed: Method,
-            handler: httputil::BoxCloneHandler<Svc, Request<Incoming>, Response<BoxBody>>,
+            handler: http::BoxCloneHandler<Svc, Request<Incoming>, Response<BoxBody>>,
         ) -> () {
             mux.entry(methed)
                 .or_default()
@@ -293,57 +285,57 @@ impl Svc {
             &mut mux,
             "/cars",
             Method::POST,
-            httputil::BoxCloneHandler::new(httputil::handler_fn(Svc::create_car)),
+            http::BoxCloneHandler::new(http::handler_fn(Svc::create_car)),
         );
         add_route(
             &mut mux,
             "/cars/:id",
             Method::PUT,
-            httputil::BoxCloneHandler::new(httputil::handler_fn(Svc::update_car)),
+            http::BoxCloneHandler::new(http::handler_fn(Svc::update_car)),
         );
         add_route(
             &mut mux,
             "/cars",
             Method::GET,
-            httputil::BoxCloneHandler::new(httputil::handler_fn(Svc::get_car_list)),
+            http::BoxCloneHandler::new(http::handler_fn(Svc::get_car_list)),
         );
         add_route(
             &mut mux,
             "/cars/:id",
             Method::GET,
-            httputil::BoxCloneHandler::new(httputil::handler_fn(Svc::get_car_by_id)),
+            http::BoxCloneHandler::new(http::handler_fn(Svc::get_car_by_id)),
         );
         add_route(
             &mut mux,
             "/cars",
             Method::DELETE,
-            httputil::BoxCloneHandler::new(httputil::handler_fn(Svc::delete_all_cars)),
+            http::BoxCloneHandler::new(http::handler_fn(Svc::delete_all_cars)),
         );
         add_route(
             &mut mux,
             "/cars/:id",
             Method::DELETE,
-            httputil::BoxCloneHandler::new(httputil::handler_fn(Svc::delete_car)),
+            http::BoxCloneHandler::new(http::handler_fn(Svc::delete_car)),
         );
 
         add_route(
             &mut mux,
             "/ctl/images",
             Method::GET,
-            httputil::BoxCloneHandler::new(httputil::handler_fn(Svc::list_images)),
+            http::BoxCloneHandler::new(http::handler_fn(Svc::list_images)),
         );
         add_route(
             &mut mux,
             "/ctl/images",
             Method::POST,
-            httputil::BoxCloneHandler::new(httputil::handler_fn(Svc::push_image)),
+            http::BoxCloneHandler::new(http::handler_fn(Svc::push_image)),
         );
 
         add_route(
             &mut mux,
             "/test/sleep/:duration",
             Method::GET,
-            httputil::BoxCloneHandler::new(httputil::handler_fn(Svc::sleep)),
+            http::BoxCloneHandler::new(http::handler_fn(Svc::sleep)),
         );
         return mux;
     }
@@ -385,7 +377,29 @@ async fn main() -> Result<(), GenericError> {
         car_store: std::sync::Arc::from(carstore),
         mux: std::sync::Arc::new(Svc::build_router()),
     };
+
     let svc = middleware::timeout::Timeout::new(svc, std::time::Duration::from_secs(3));
+    let svc = middleware::auth::AsyncRequireAuthorization::new(
+        svc,
+        |req: Request<Incoming>| async move {
+            if let Some(token) = check_auth(&req).await {
+                if token != "zenx" {
+                    return Err(mk_err_response(StatusCode::UNAUTHORIZED, ""));
+                }
+            }
+            Ok(req)
+        },
+    );
+    let svc = middleware::util::MapResponse::new(svc, |resp: Response<BoxBody>| {
+        let (mut parts, body) = resp.into_parts();
+        parts
+            .headers
+            .append("Server-Owner", HeaderValue::from_str("zenx").unwrap());
+        Response::from_parts(parts, body)
+    });
+    let svc = middleware::error_handling::HandleError::new(svc, handle_error);
+    let svc = middleware::log::LogRequest::new(svc);
+
     println!("Listening on http://{}", addr);
     loop {
         let (stream, _) = listener.accept().await?;
@@ -417,8 +431,7 @@ async fn main() -> Result<(), GenericError> {
     }
 }
 
-type HandlerFn =
-    std::sync::Mutex<httputil::BoxCloneHandler<Svc, Request<Incoming>, Response<BoxBody>>>;
+type HandlerFn = std::sync::Mutex<http::BoxCloneHandler<Svc, Request<Incoming>, Response<BoxBody>>>;
 type Router = HashMap<Method, matchit::Router<HandlerFn>>;
 
 fn route(
@@ -435,7 +448,7 @@ fn route(
 
         match router.at(req.uri().path()) {
             Ok(found) => {
-                let mut ctx = httputil::Context {
+                let mut ctx = http::Context {
                     vars: HashMap::new(),
                 };
                 for p in found.params.iter() {
@@ -444,7 +457,7 @@ fn route(
                 // lock the service for a very short time, just to clone the service
                 let res = {
                     let mut ha = found.value.lock().unwrap().clone();
-                    httputil::Handler::call(&mut ha, s, ctx, req).await
+                    http::Handler::call(&mut ha, s, ctx, req).await
                 };
                 Ok(res)
             }
@@ -452,4 +465,25 @@ fn route(
             Err(_) => Ok(mk_err_response(StatusCode::NOT_FOUND, "")),
         }
     }
+}
+
+async fn handle_error(error: middleware::timeout::BoxError) -> impl IntoResponse {
+    if error.is::<middleware::timeout::TimeoutError>() {
+        return (
+            StatusCode::REQUEST_TIMEOUT,
+            String::from("request timed out"),
+        );
+    }
+
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        String::from(format!("Unhandled internal error: {}", error)),
+    )
+}
+
+async fn check_auth<B>(request: &Request<B>) -> Option<String> {
+    request
+        .headers()
+        .get("Bearer")
+        .map(|v| v.to_str().unwrap_or_default().to_string())
 }

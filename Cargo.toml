@@ -9,6 +9,7 @@ edition = "2021"
 hyper = { version = "1.0.0-rc.2", features = ["full"] }
 tokio = { version = "1", features = ["full"] }
 http-body-util = "0.1.0-rc.2" 
+http-body = "=1.0.0-rc.2"
 log = "0.4.17"
 pretty_env_logger = "0.4"
 bytes = "1"
@@ -19,3 +20,6 @@ matchit = "0.7.0"
 tower = { version = "0.4.13", features = ["make", "util"] }
 rusqlite = { version = "0.28.0", features = ["bundled"] }
 pin-project-lite = "0.2.9"
+futures-util = "0.3.26"
+futures-core = "0.3.26"
+base64 = { version = "0.20"}
