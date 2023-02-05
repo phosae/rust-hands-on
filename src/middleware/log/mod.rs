@@ -1,6 +1,7 @@
 use std::{pin::Pin, task::Poll, time::Instant};
 
 use hyper::service::Service;
+use hyper::Request;
 use pin_project_lite::pin_project;
 use std::future::Future;
 
@@ -9,6 +10,7 @@ pin_project! {
         #[pin]
         pub(crate) response_future: F,
         pub(crate) start: Instant,
+        pub(crate) reqinfo: String,
     }
 }
 
@@ -22,7 +24,11 @@ where
         let this = self.project();
         match this.response_future.poll(cx) {
             Poll::Ready(result) => {
-                println!("Elapsed: {:.2?} ms", this.start.elapsed().as_millis());
+                println!(
+                    "{}, elapsed: {:.2?} ms",
+                    this.reqinfo,
+                    this.start.elapsed().as_millis()
+                );
                 return Poll::Ready(result);
             }
             Poll::Pending => {}
@@ -42,20 +48,27 @@ impl<S> LogRequest<S> {
     }
 }
 
-impl<S, Request> Service<Request> for LogRequest<S>
+impl<S, ReqBody> Service<Request<ReqBody>> for LogRequest<S>
 where
-    S: Service<Request>,
+    S: Service<Request<ReqBody>>,
 {
     type Response = S::Response;
     type Error = S::Error;
     type Future = ResponseFuture<S::Future>;
 
-    fn call(&mut self, req: Request) -> Self::Future {
+    fn call(&mut self, req: Request<ReqBody>) -> Self::Future {
         let start = std::time::Instant::now();
+        let reqinfo = format!(
+            "request method={}, uri={}, version={:?}",
+            req.method(),
+            req.uri(),
+            req.version()
+        );
         let response_future = self.inner.call(req);
         ResponseFuture {
             response_future,
             start,
+            reqinfo,
         }
     }
 }
