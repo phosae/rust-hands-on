@@ -353,7 +353,7 @@ impl hyper::service::Service<Request<Incoming>> for Svc {
 #[tokio::main]
 async fn main() -> Result<(), tower::BoxError> {
     pretty_env_logger::init();
-    let addr = SocketAddr::from(([127, 0, 0, 1], 9100));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 9100));
     let listener = TcpListener::bind(addr).await?;
 
     let carstore = match std::env::var("DB_TYPE") {

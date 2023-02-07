@@ -58,6 +58,9 @@ See [CHANGELOG-v3](CHANGELOG-v3.md)
 
 See [CHANGELOG-v4](CHANGELOG-v4.md)
 
+## WebAssembly 
+add a demo wasi/wasm32 HTTP server, [car-demo](./car-demo-wasm/), based on v2
+
 ## [TODO]
 - layerize middlewares
 - all HTTP handler return Serializable T directly
