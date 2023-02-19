@@ -17,6 +17,7 @@ use serde::Serialize;
 use serde_json::json;
 use store::{Car, CarStore, MemCarStore, SQLiteCarStore, StoreError};
 use tokio::net::TcpListener;
+use tokio::sync::watch;
 
 extern crate pretty_env_logger;
 #[macro_use]
@@ -354,7 +355,7 @@ impl hyper::service::Service<Request<Incoming>> for Svc {
 async fn main() -> Result<(), tower::BoxError> {
     pretty_env_logger::init();
     let addr = SocketAddr::from(([0, 0, 0, 0], 9100));
-    let listener = TcpListener::bind(addr).await?;
+    let listener = TcpListener::bind(addr).await.expect("failed to bind");
 
     let carstore = match std::env::var("DB_TYPE") {
         // Ok(dbtyp) => match dbtyp.as_str() {
@@ -377,7 +378,10 @@ async fn main() -> Result<(), tower::BoxError> {
         mux: std::sync::Arc::new(Svc::build_router()),
     };
 
-    let svc = middleware::timeout::Timeout::new(svc, std::time::Duration::from_secs(3));
+    let timeout_sec = std::env::var("TIMEOUT")
+        .map(|t| t.parse::<u64>().expect("TIMEOUT in seconds"))
+        .unwrap_or(3);
+    let svc = middleware::timeout::Timeout::new(svc, std::time::Duration::from_secs(timeout_sec));
     let svc = middleware::auth::AsyncRequireAuthorization::new(
         svc,
         |req: Request<Incoming>| async move {
@@ -401,12 +405,69 @@ async fn main() -> Result<(), tower::BoxError> {
     let svc = middleware::log::LogRequest::new(svc);
 
     println!("Listening on http://{}", addr);
+    let (tx, mut rx) = watch::channel(false);
+
+    tokio::task::spawn(async move {
+        loop {
+            let svc = svc.clone();
+            tokio::select! {
+                res = listener.accept() => {
+                    let (stream, _) = res.expect("Failed to accept");
+                    let mut rx = rx.clone();
+                    tokio::task::spawn(async move {
+                        let mut conn = http1::Builder::new().serve_connection(stream, svc);
+                        let mut conn = Pin::new(&mut conn);
+                        tokio::select! {
+                            res = &mut conn => {
+                                if let Err(err) = res {
+                                    println!("Error serving connection: {:?}", err);
+                                    return;
+                                }
+                            }
+                            _ = rx.changed() => {
+                                conn.graceful_shutdown();
+                            }
+                        }
+                    });
+                }
+                _ = rx.changed() => {
+                    break;
+                }
+            }
+        }
+    });
+
+    match tokio::signal::ctrl_c().await {
+        Ok(()) => {
+            let _ = tx.send(true);
+            // normally we should return when all in-flight connections are finished or a timeout occurred,
+            // but currently in-flight connections have not been recorded (don't know how to achieve it for now...).
+            Ok(())
+        }
+        Err(err) => Err(format!("Unable to listen for shutdown signal: {}", err).into()),
+    }
+}
+
+/// x_main shows that why mux is putting inside Svc
+#[allow(dead_code)]
+async fn x_main() -> Result<(), tower::BoxError> {
+    pretty_env_logger::init();
+    let addr = SocketAddr::from(([0, 0, 0, 0], 9100));
+    let listener = TcpListener::bind(addr).await.expect("failed to bind");
+    let svc = Svc {
+        car_store: std::sync::Arc::from(
+            Box::new(MemCarStore::init()) as Box<dyn CarStore + Send + Sync>
+        ),
+        mux: std::sync::Arc::new(Svc::build_router()),
+    };
+    // let mux = std::sync::Arc::new(Svc::build_router());
+
     loop {
         let (stream, _) = listener.accept().await?;
         let svc = svc.clone();
-        // let mux = _mux.clone();
+        // let mux = mux.clone();
         // let handle_service = hyper::service::service_fn(move |req| {
-        //     let f: Pin<Box<dyn Future<Output = Result<Response<BoxBody>>> + Send>> =
+        //     let f: Pin<Box<dyn Future<Output = Result<Response<BoxBody>, BoxError>> + Send>> =
         //         Box::pin(route(mux.clone(), svc.clone(), req));
         //     f
         // });
