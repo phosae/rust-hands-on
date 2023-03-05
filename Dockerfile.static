@@ -1,0 +1,42 @@
+# docker buildx build --platform linux/amd64,linux/arm64 -t zengxu/car-rust-up:static -f Dockerfile.static --push .
+FROM messense/rust-musl-cross:x86_64-musl AS build-amd64
+WORKDIR /workspace
+
+COPY Cargo.toml Cargo.toml
+COPY src/ src/
+
+# no need to do this (and it never compiles successfully) since we have `messense/rust-musl-cross:x86_64-musl` as build image
+# RUN rustup target add x86_64-unknown-linux-musl
+# RUN rustup toolchain install \
+#     stable-x86_64-unknown-linux-musl stable-aarch64-unknown-linux-musl
+# RUN apt update && apt install -y musl-tools
+
+RUN --mount=type=cache,target=/usr/local/cargo/git/db \
+    --mount=type=cache,target=/usr/local/cargo/registry/cache \
+    --mount=type=cache,target=/usr/local/cargo/registry/index \
+    RUSTFLAGS='-C target-feature=+crt-static' cargo build --target x86_64-unknown-linux-musl --release
+
+RUN cp /workspace/target/x86_64-unknown-linux-musl/release/qappctl-shim-rs /usr/local/bin/qappctl-shim-rs-amd64-static
+
+FROM messense/rust-musl-cross:aarch64-musl AS build-arm64
+WORKDIR /workspace
+
+COPY Cargo.toml Cargo.toml
+COPY src/ src/
+
+RUN --mount=type=cache,target=/usr/local/cargo/git/db \
+    --mount=type=cache,target=/usr/local/cargo/registry/cache \
+    --mount=type=cache,target=/usr/local/cargo/registry/index \
+    RUSTFLAGS='-C target-feature=+crt-static' cargo build --target aarch64-unknown-linux-musl --release
+
+RUN cp /workspace/target/aarch64-unknown-linux-musl/release/qappctl-shim-rs /usr/local/bin/qappctl-shim-rs-arm64-static
+
+FROM debian:bullseye as build
+COPY --from=build-amd64 /usr/local/bin/qappctl-shim-rs-amd64-static /qappctl-shim-rs-amd64-static
+COPY --from=build-arm64 /usr/local/bin/qappctl-shim-rs-arm64-static /qappctl-shim-rs-arm64-static
+
+FROM scratch
+ARG TARGETARCH
+# Dockerfile syntax error `COPY --from=build-${TARGETARCH} /qappctl-shim-rs-${TARGETARCH}-static /qappctl-shim-rs`
+COPY --from=build /qappctl-shim-rs-${TARGETARCH}-static /qappctl-shim-rs 
+ENTRYPOINT [ "/qappctl-shim-rs"]
