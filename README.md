@@ -1,4 +1,4 @@
-# rewrite qappctl-shim in Rust
+# Hands-On Rust HTTP Server Based on Hyper 1.0+
 play with
 ```
 cargo run
@@ -58,8 +58,11 @@ See [CHANGELOG-v3](CHANGELOG-v3.md)
 
 See [CHANGELOG-v4](CHANGELOG-v4.md)
 
-## WebAssembly 
+### WebAssembly
 add a demo wasi/wasm32 HTTP server, [car-demo](./car-demo-wasm/), based on v2
+
+## v5 (doing)
+- replace qappctl command with docker, make path `/ctl/**` more common
 
 ## [TODO]
 - layerize middlewares
