@@ -22,4 +22,4 @@ rusqlite = { version = "0.28.0", features = ["bundled"] }
 pin-project-lite = "0.2.9"
 futures-util = "0.3.26"
 futures-core = "0.3.26"
-base64 = { version = "0.20"}
+base64 = { version = "0.21"}
