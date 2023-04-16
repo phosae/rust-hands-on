@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 # docker buildx build --platform wasi/wasm32 -t zengxu/car-demo-wasm .
 
+# for amd64 use zengxu/rust-wasmedge-amd64:1.67
 FROM --platform=$BUILDPLATFORM zengxu/rust-wasmedge:1.67.0 AS build
 COPY Cargo.toml Cargo.toml
 COPY src/ src/ 

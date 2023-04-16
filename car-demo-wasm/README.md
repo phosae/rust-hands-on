@@ -2,7 +2,7 @@
 ## play
 build
 ```
-docker buildx build --platform wasi/wasm32 -f Dockerfile.wasmedge -t zengxu/car-demo-wasm .
+docker buildx build --platform wasi/wasm32 -t zengxu/car-demo-wasm .
 ```
 run
 ```
