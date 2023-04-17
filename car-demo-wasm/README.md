@@ -11,6 +11,12 @@ docker run --rm -dp 9100:9100 \
   --platform=wasi/wasm32 \
   zengxu/car-demo-wasm
 ```
+Currently Docker Desktop only, Docker CE complains `operating system is not supported`
+
+On Linux we can 
+- run it by containerd + [runwasi](github.com/containerd/runwasi), without network setup
+- run it by K8s + containerd + [runwasi](github.com/containerd/runwasi), with network setup (i did't test it)
+
 ## test
 apis
 - GET /cars = to fetch all cars
