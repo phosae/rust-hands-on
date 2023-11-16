@@ -54,7 +54,7 @@ where
     type Error = S::Error;
     type Future = ResponseFuture<S::Future>;
 
-    fn call(&mut self, req: Request<ReqBody>) -> Self::Future {
+    fn call(&self, req: Request<ReqBody>) -> Self::Future {
         let start = std::time::Instant::now();
         let reqinfo = format!(
             "request method={}, uri={}, version={:?}",

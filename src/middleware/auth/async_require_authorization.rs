@@ -35,7 +35,7 @@ where
     type Error = S::Error;
     type Future = ResponseFuture<Auth, S, ReqBody>;
 
-    fn call(&mut self, req: Request<ReqBody>) -> Self::Future {
+    fn call(&self, req: Request<ReqBody>) -> Self::Future {
         let inner = self.inner.clone();
         let authorize = self.auth.authorize(req);
 
@@ -121,19 +121,19 @@ pub trait AsyncAuthorizeRequest<B> {
     /// Authorize the request.
     ///
     /// If the future resolves to `Ok(request)` then the request is allowed through, otherwise not.
-    fn authorize(&mut self, request: Request<B>) -> Self::Future;
+    fn authorize(&self, request: Request<B>) -> Self::Future;
 }
 
 impl<B, F, Fut, ReqBody, ResBody> AsyncAuthorizeRequest<B> for F
 where
-    F: FnMut(Request<B>) -> Fut,
+    F: Fn(Request<B>) -> Fut,
     Fut: Future<Output = Result<Request<ReqBody>, Response<ResBody>>>,
 {
     type RequestBody = ReqBody;
     type ResponseBody = ResBody;
     type Future = Fut;
 
-    fn authorize(&mut self, request: Request<B>) -> Self::Future {
+    fn authorize(&self, request: Request<B>) -> Self::Future {
         self(request)
     }
 }

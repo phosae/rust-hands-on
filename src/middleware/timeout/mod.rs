@@ -77,7 +77,7 @@ where
     type Error = BoxError;
     type Future = ResponseFuture<S::Future>;
 
-    fn call(&mut self, req: Request) -> Self::Future {
+    fn call(&self, req: Request) -> Self::Future {
         let response_future = self.inner.call(req);
         let sleep = tokio::time::sleep(self.timeout);
 

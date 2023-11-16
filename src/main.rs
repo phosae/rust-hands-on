@@ -12,6 +12,7 @@ use hyper::header;
 use hyper::http::HeaderValue;
 use hyper::server::conn::http1;
 use hyper::{Method, Request, Response, StatusCode};
+use hyper_util::rt::TokioIo;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::json;
@@ -346,7 +347,7 @@ impl hyper::service::Service<Request<Incoming>> for Svc {
     type Error = tower::BoxError;
     type Future = Pin<Box<dyn Future<Output = Result<Response<BoxBody>, tower::BoxError>> + Send>>;
 
-    fn call(&mut self, req: Request<Incoming>) -> Self::Future {
+    fn call(&self, req: Request<Incoming>) -> Self::Future {
         Box::pin(route(self.mux.clone(), self.clone(), req))
     }
 }
@@ -413,9 +414,15 @@ async fn main() -> Result<(), tower::BoxError> {
             tokio::select! {
                 res = listener.accept() => {
                     let (stream, _) = res.expect("Failed to accept");
+
+                    // Use an adapter to access something implementing `tokio::io` traits as if they implement
+                    // `hyper::rt` IO traits.
+                    // fix: the trait `hyper::rt::Read` is not implemented for `tokio::net::TcpStream`
+                    let io = TokioIo::new(stream);
+
                     let mut rx = rx.clone();
                     tokio::task::spawn(async move {
-                        let mut conn = http1::Builder::new().serve_connection(stream, svc);
+                        let mut conn = http1::Builder::new().serve_connection(io, svc);
                         let mut conn = Pin::new(&mut conn);
                         tokio::select! {
                             res = &mut conn => {
@@ -464,6 +471,7 @@ async fn x_main() -> Result<(), tower::BoxError> {
 
     loop {
         let (stream, _) = listener.accept().await?;
+        let io = TokioIo::new(stream);
         let svc = svc.clone();
         // let mux = mux.clone();
         // let handle_service = hyper::service::service_fn(move |req| {
@@ -485,7 +493,7 @@ async fn x_main() -> Result<(), tower::BoxError> {
         // });
         // so putting mux in Svc to solve it
         tokio::task::spawn(async move {
-            if let Err(err) = http1::Builder::new().serve_connection(stream, svc).await {
+            if let Err(err) = http1::Builder::new().serve_connection(io, svc).await {
                 println!("Error serving connection: {:?}", err);
             }
         });

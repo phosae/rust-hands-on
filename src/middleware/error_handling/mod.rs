@@ -1,4 +1,4 @@
-use std::{convert::Infallible, fmt, future::Future, marker::PhantomData};
+use std::{convert::Infallible, fmt, future::Future, marker::PhantomData, marker::Sync};
 
 use crate::http::into_response::IntoResponse;
 use hyper::service::Service;
@@ -51,11 +51,11 @@ where
 
 impl<S, F, B, Fut, Res> Service<Request<B>> for HandleError<S, F, ()>
 where
-    S: Service<Request<B>> + Clone + Send + 'static,
+    S: Service<Request<B>> + Clone + Send + Sync + 'static,
     S::Response: IntoResponse + Send,
     S::Error: Send,
     S::Future: Send,
-    F: FnOnce(S::Error) -> Fut + Clone + Send + 'static,
+    F: FnOnce(S::Error) -> Fut + Clone + Send + Sync + 'static,
     Fut: Future<Output = Res> + Send,
     Res: IntoResponse,
     B: Send + 'static,
@@ -64,11 +64,23 @@ where
     type Error = Infallible;
     type Future = future::HandleErrorFuture;
 
-    fn call(&mut self, req: Request<B>) -> Self::Future {
+    fn call(&self, req: Request<B>) -> Self::Future {
         let f = self.f.clone();
 
-        let clone = self.inner.clone();
-        let inner = std::mem::replace(&mut self.inner, clone);
+        // as hyper::Service change from tower_service
+        //
+        //      fn call(&mut self, req: Request) -> Self::Future
+        //
+        // to
+        //
+        //      fn call(&self, req: Request) -> Self::Future
+        //
+        // there's no need do things like https://github.com/tokio-rs/axum/blob/main/axum/src/error_handling/mod.rs
+        //
+        //     let clone = self.inner.clone();
+        //     let inner = std::mem::replace(&mut self.inner, clone);
+        //
+        let inner = self.inner.clone();
 
         let future = Box::pin(async move {
             match inner.oneshot(req).await {

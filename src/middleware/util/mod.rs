@@ -30,7 +30,7 @@ where
     type Future = MapResponseFuture<S::Future, F>;
 
     #[inline]
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&self, request: Request) -> Self::Future {
         MapResponseFuture::new(self.inner.call(request).map_ok(self.f.clone()))
     }
 }
@@ -59,7 +59,7 @@ where
     type Future = MapResultFuture<S::Future, F>;
 
     #[inline]
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&self, request: Request) -> Self::Future {
         MapResultFuture::new(self.inner.call(request).map(self.f.clone()))
     }
 }
