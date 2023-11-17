@@ -1,5 +1,5 @@
 # docker buildx build --platform linux/amd64,linux/arm64 -t zengxu/car-rust-up --push .
-FROM rust:1.73.0-slim-bullseye AS build
+FROM rust:1.74.0-slim-bullseye AS build
 WORKDIR /workspace
 ARG TARGETARCH
 

@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 hyper = { version = "1.0.0", features = ["full"] }
-hyper-util = { git = "https://github.com/hyperium/hyper-util.git" }
+hyper-util = { version = "0.1.0", features = ["tokio"] }
 tokio = { version = "1.34.0", features = ["full"] }
 http-body-util = "0.1.0"
 http-body = "1.0.0"
