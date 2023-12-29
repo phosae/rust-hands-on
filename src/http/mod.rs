@@ -4,7 +4,7 @@ mod lifetime_handler_sucks;
 mod mock_tower_svc;
 use http_body_util::{BodyExt, Full};
 
-pub use self::handler::{handler_fn, BoxCloneHandler, BoxHandler, Context, Handler};
+pub use self::handler::{handler_fn, BoxCloneHandler, Context, Handler};
 pub mod into_response;
 
 #[allow(dead_code)]
